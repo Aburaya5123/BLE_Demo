@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">BLE_Demo</string>
+
+    <string name="service_uuid">a5caddc1-85f4-fa51-d9ca-3ef32c26ac31</string>>
+    <string name="client_to_server_characteristic_uuid">ed62a075-253e-1e62-3c6b-4aff680f00b9</string>>
+    <string name="server_to_client_characteristic_uuid">cf9c8a59-af90-7e65-6dc3-e4bb69c6fc87</string>>
+    <string name="gatt_connection_token">this_message_is_delivered_when_connection_is_established</string>>
+    <string name="advertising_data">ここにユーザーIDを入れます</string>>
+
+    <string name="ble_is_not_supported">お使いの端末には対応していません</string>
+    <string name="bluetooth_is_not_enabled">Bluetoothをオンにして再度お試しください</string>
+    <string name="gps_is_not_enabled">GPSをオンにして再度お試しください</string>
+    <string name="permission_is_not_granted">アプリの実行に必要な権限が不足しています</string>
+    <string name="permission_request_denied">以下の権限の取得に失敗しました: </string>
+
+    <string name="advertising_start">BLEのAdvertiseを実行中</string>
+    <string name="advertising_failed">BLEのAdvertiseに失敗</string>
+    <string name="advertising_stop">BLEのAdvertiseを中断</string>
+
+    <string name="already_connected_to_gatt_server">既にGattサーバーに接続されています</string>
+    <string name="already_connected_to_gatt_client">既にGattクライアントに接続されています</string>
+    <string name="already_connecting_to_gatt_server">既にGattサーバーへ接続中です</string>
+    <string name="connecting_gatt_server">Gattサーバーへ接続します</string>
+
+    <string name="gatt_server_up">GATTサーバーが正常に起動しました</string>
+    <string name="gatt_server_down">GATTサーバーが正常に終了しました</string>
+    <string name="gatt_server_bad_status">GATTサーバーに問題が発生したため終了しました</string>
+
+    <string name="gatt_server_client_connected">クライアントが接続しました</string>
+    <string name="gatt_server_client_disconnected">クライアントと切断されました</string>
+    <string name="gatt_server_client_not_found">クライアントが見つかりません</string>
+    <string name="gatt_server_writing_failed">メッセージの送信に失敗しました</string>
+
+    <string name="gatt_client_connected">GATTクライアントの接続に成功しました</string>
+    <string name="gatt_client_connection_failure">GATTクライアントの接続に失敗しました</string>
+    <string name="gatt_client_disconnected">GATTクライアントが正常に終了されました</string>
+    <string name="gatt_client_connection_retry">接続が切断されたため再接続中です</string>
+    <string name="gatt_client_error">エラーが発生したためGATTクライアントに接続できませんでした</string>
+    <string name="gatt_client_writing_success">メッセージの送信に成功しました</string>
+    <string name="gatt_client_writing_failed">メッセージの送信に失敗しました</string>
+    <string name="gatt_client_writing_toolong">メッセージの送信に失敗しました</string>
+
+    <string name="scanning_devices">デバイスをスキャン中</string>
+    <string name="connection_not_established">テキストを送信するにはBLE接続を行ってください</string>
+</resources>

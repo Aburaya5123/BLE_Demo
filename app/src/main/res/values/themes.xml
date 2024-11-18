@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.BLE_Demo" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="colorPrimary">@color/light_orange</item>
+        <item name="colorPrimaryDark">@color/light_orange</item>
+        <item name="android:statusBarColor">@color/light_orange</item>
+    </style>
+
+</resources>
