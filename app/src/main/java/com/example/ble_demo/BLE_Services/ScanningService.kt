@@ -20,6 +20,17 @@ import com.example.ble_demo.R
 import java.util.UUID
 
 
+/**
+ * BLEのスキャンを行うクラスです
+ * 参考: https://qiita.com/QiitaD/items/5c313076b7b99823ce1a
+ *
+ * 現在のコードでは、scan() 呼び出し時に SCAN_PERIOD 時間だけスキャンを実行していますが、
+ * 本番環境ではスキャンのオンオフ切り替えを行えるようにしてください
+ *
+ * スキャンの準備: startScanningService(callback: ScanningServiceCallback)
+ * スキャンの開始: scan()
+ * スキャンの停止: stopScan()
+ */
 class ScanningService : Service() {
     private lateinit var callback: ScanningServiceCallback
     private val binder = LocalBinder()
@@ -46,11 +57,18 @@ class ScanningService : Service() {
     }
 
     override fun onDestroy() {
+        // このクラスが破棄されるタイミングで、必ず、handlerの中身をクリアしてください
         handler.removeCallbacksAndMessages(null)
+        // このクラスが破棄されるタイミングでブロードキャストを行うことで他のクラスへ通知を行っています
         sendBroadcast(Intent(SCANNING_DESTROYED))
         super.onDestroy()
     }
 
+    /**
+     * スキャンの準備処理です
+     * スキャンの実行には下部にある scan() を呼び出してください
+     * 引数として、このクラスで定義しているインターフェイスの実装を受け取っています
+     */
     fun startScanningService(callback: ScanningServiceCallback) {
         this.callback = callback
 
@@ -67,9 +85,11 @@ class ScanningService : Service() {
         filters.add(filter)
         dummyFilters.add(dummyFilter)
         scanSettings = ScanSettings.Builder()
+            // 以下のパラメータは検出の頻度/最大件数に関係するので、適宜調整してください
             .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
             .setScanMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
             .setNumOfMatches(ScanSettings.MATCH_NUM_FEW_ADVERTISEMENT)
+            // ここまで
             .setLegacy(false)
             .setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
             .build()
@@ -80,6 +100,11 @@ class ScanningService : Service() {
         callback.onScanningStatusChanged(state)
     }
 
+    /**
+     * スキャンを実行します
+     * 引数として、スキャンの実行時間に関連するパラメータを受け取っています
+     * 本番環境ではオンオフの切り替えができるように書き換えてください
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun scan(filterMode: ScanFilterOption, scanMode: ScanModeOption) {
         if (scanMode != this.scanMode) {
@@ -107,6 +132,10 @@ class ScanningService : Service() {
         }
     }
 
+    /**
+     * スキャンを停止します
+     * handlerに待機中の処理があるかもしれないので、念のためリセットを行っています
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun stopScan() {
         bluetoothLeScanner.stopScan(scanCallback)
@@ -120,11 +149,6 @@ class ScanningService : Service() {
             callback.onScanResultReceived(result)
         }
 
-        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
-            super.onBatchScanResults(results)
-            callback.onBatchScanResultReceived(results)
-        }
-
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e(
@@ -135,22 +159,32 @@ class ScanningService : Service() {
     }
 
     companion object {
+        // スキャンを実行する時間(ミリ秒)です
         private const val SCAN_PERIOD: Long = 5000
         private const val LOG_TAG = "ScanningService"
         const val SCANNING_DESTROYED = "com.example.ble_demo.SCANNING_DESTROYED"
     }
 
     interface ScanningServiceCallback {
+        // スキャン結果を受け取った際のコールバック
         fun onScanResultReceived(result: ScanResult)
-        fun onBatchScanResultReceived(results: MutableList<ScanResult>?)
+        // スキャンの実行状況が変動した際のコールバック
         fun onScanningStatusChanged(state: Boolean)
     }
 
+    /**
+     * スキャンにフィルターをかけるか否かを指定
+     * 本番環境では常にフィルターをかけてください
+     */
     enum class ScanFilterOption {
         NON_FILTERED_SCAN,
         SERVICE_FILTERED_SCAN,
     }
 
+    /**
+     * 断続的なスキャンか連続的なスキャンかを指定
+     * 本番環境ではオンオフを切り替えられるようにしてください
+     */
     enum class ScanModeOption {
         CONTINUOUS_SCAN,
         INTERVAL_SCAN,

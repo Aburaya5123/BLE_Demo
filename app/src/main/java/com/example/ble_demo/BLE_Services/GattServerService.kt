@@ -20,6 +20,9 @@ import com.example.ble_demo.ui.BleViewModel
 import java.util.UUID
 
 
+/**
+ * アプリの実装時にはこの機能は不要です
+ */
 class GattServerService : Service() {
     private val binder = LocalBinder()
     private lateinit var callback: GattServerMessageCallback

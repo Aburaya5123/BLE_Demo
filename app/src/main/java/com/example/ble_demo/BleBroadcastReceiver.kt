@@ -14,22 +14,31 @@ import com.example.ble_demo.BLE_Services.GattServerService.Companion.GATT_SERVER
 import com.example.ble_demo.BLE_Services.ScanningService.Companion.SCANNING_DESTROYED
 import com.example.ble_demo.ui.BleViewModel
 
+
+/**
+ * sendBroadcast() で送信されたブロードキャストを受け取るクラスです
+ * ブロードキャストの必要性として、アプリ起動中にBluetoothやGPSがユーザー操作により無効化された場合、
+ * ブロードキャストで検知し、ユーザーに有効化を促すことができます
+ *
+ * 他にも自ら定義したIntentを送信することで、クラス間を跨いだ情報共有が行えます
+ */
 class BleBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action != null) {
             when (intent.action) {
+                // GPSの有効化/無効化が行われた際
                 LocationManager.PROVIDERS_CHANGED_ACTION -> {
                     if (!context.isGpsEnabled) {
                         (context as MainActivity).enableGps()
                     }
                 }
-
+                // Bluetoothの有効化/無効化が行われた際
                 BluetoothAdapter.ACTION_STATE_CHANGED -> {
                     if (!context.isBluetoothEnabled) {
                         (context as MainActivity).enableBluetooth()
                     }
                 }
-
+                // それぞれのサービスが破棄された際
                 ADVERTISING_DESTROYED -> {
                     (context as MainActivity).onServiceDestroyed(BleViewModel.ServiceName.Advertising)
                 }

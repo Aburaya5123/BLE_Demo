@@ -6,6 +6,7 @@
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
 
+    <!-- APIバージョンによって必要な権限が異なるため、バージョンごとに条件分岐を行っても良い -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
@@ -35,6 +36,7 @@
             </intent-filter>
         </activity>
 
+        <!-- アプリの中で使用するサービス名をここに記載してください -->
         <service android:name=".BLE_Services.AdvertisingService" />
         <service android:name=".BLE_Services.ScanningService" />
         <service android:name=".BLE_Services.GattClientService" />

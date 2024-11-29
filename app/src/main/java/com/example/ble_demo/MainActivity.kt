@@ -93,6 +93,9 @@ import kotlinx.coroutines.launch
 import io.morfly.compose.bottomsheet.material3.rememberBottomSheetState
 
 
+/**
+ * 本番環境ではAdvertisingとScanningの実装だけ行い、Gatt機能は不要
+ */
 class MainActivity : FragmentActivity() {
     private lateinit var advertisingServiceBinder: AdvertisingService.LocalBinder
     private lateinit var scanningServiceBinder: ScanningService.LocalBinder
@@ -116,6 +119,9 @@ class MainActivity : FragmentActivity() {
         }
         checkBleAvailability()
         setAutoRebindingService()
+
+        // GPSが有効/Bluetoothが有効/全ての権限を取得済み
+        // これら3つの条件がすべてそろった場合にのみ、広告を実行するようにしてください
         viewModel.allPermissionsGrantedLiveData.observe(this) { granted ->
             if (granted && viewModel.allConditionsMet) {
                 onAllConditionsMet()
@@ -137,6 +143,7 @@ class MainActivity : FragmentActivity() {
             }
         }
 
+        // BroadcastReceiverの登録
         broadcastReceiver = BleBroadcastReceiver()
         val filter = IntentFilter().apply {
             addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
@@ -146,7 +153,7 @@ class MainActivity : FragmentActivity() {
             addAction(GATT_SERVER_DESTROYED)
             addAction(GATT_CLIENT_DESTROYED)
         }
-
+        // APIバージョンによってBroadcastReceiverの登録方法が異なるので注意
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(broadcastReceiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -163,6 +170,7 @@ class MainActivity : FragmentActivity() {
             resetPermissionGrantedState()
             resetFunctionEnabledState()
         }
+        // アプリが有効になったタイミングで権限の再確認を行ってください
         requestPermissions()
         if (!this.isGpsEnabled) {
             enableGps()
@@ -182,6 +190,12 @@ class MainActivity : FragmentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * サービスのバインドを行う
+     *
+     * @param service サービスの名称
+     * @param serviceConnection serviceの現在の接続状況
+     */
     private fun bindMyService(service: ServiceName, serviceConnection: ServiceConnectionState) {
         if (serviceConnection != ServiceConnectionState.NOT_CONNECTED &&
             serviceConnection != ServiceConnectionState.WAITING
@@ -216,6 +230,12 @@ class MainActivity : FragmentActivity() {
         viewModel.onServiceConnectionStateChanged(service, ServiceConnectionState.CONNECTING)
     }
 
+    /**
+     * サービスのバインド解除を行う
+     *
+     * @param service サービスの名称
+     * @param serviceConnection serviceの現在の接続状況
+     */
     private fun unbindMyService(service: ServiceName, serviceConnection: ServiceConnectionState) {
         if (serviceConnection == ServiceConnectionState.NOT_CONNECTED) {
             Log.w(
@@ -254,6 +274,9 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * 全てのサービスの接続解除
+     */
     private fun unbindAllServices() {
         unbindMyService(ServiceName.Advertising, viewModel.advertisingConnection)
         unbindMyService(ServiceName.Scanning, viewModel.scanningConnection)
@@ -261,6 +284,9 @@ class MainActivity : FragmentActivity() {
         unbindMyService(ServiceName.GattClient, viewModel.gattClientConnection)
     }
 
+    /**
+     * serviceが破棄されたタイミングで再バインドを行うように設定
+     */
     private fun setAutoRebindingService() {
         viewModel.advertisingConnectionLiveData.observe(this) { conn ->
             if (conn == ServiceConnectionState.NOT_CONNECTED &&
@@ -281,12 +307,21 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Bluetooth/GPSの有効化、全ての権限の取得を確認した時点で実行する処理
+     */
     private fun onAllConditionsMet() {
         bindMyService(ServiceName.Advertising, viewModel.advertisingConnection)
         bindMyService(ServiceName.Scanning, viewModel.scanningConnection)
         bindMyService(ServiceName.GattServer, viewModel.gattServerConnection)
     }
 
+    /**
+     * 端末のbluetooth5.0対応状況
+     * BLE Extended Advertising の対応状況
+     * の確認
+     * 非対応の場合はアプリを自動終了
+     */
     private fun checkBleAvailability() {
         val adapter = (this.getSystemService(BLUETOOTH_SERVICE) as BluetoothManager).adapter
         if (adapter == null ||
@@ -307,6 +342,11 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * BroadcastReceiverでserviceの破棄を検知した際に、一定時間待機後ServiceConnectionStateの更新を行う
+     *
+     * @param serviceName サービスの名称
+     */
     fun onServiceDestroyed(serviceName: ServiceName) {
         Log.i(LOG_TAG, "onServiceDestroyed(): $serviceName")
         lifecycleScope.launch {
@@ -321,6 +361,9 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * GattクライアントとしてGattServerへ接続
+     */
     private fun connectToGattServer() {
         if (ActivityCompat.checkSelfPermission(
                 this,
@@ -344,6 +387,10 @@ class MainActivity : FragmentActivity() {
         bindService(gattIntent, gattClientServiceConnection, BIND_AUTO_CREATE)
     }
 
+    /**
+     * GattクライアントとしてGattサーバーへメッセージ送信
+     * 送信するメッセージはTextFieldに入力中の値
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendMessageToGattServer() {
         if (gattClient == null) return
@@ -353,6 +400,10 @@ class MainActivity : FragmentActivity() {
         viewModel.onInputMessageChanged("")
     }
 
+    /**
+     * GattサーバーとしてGattクライアントにメッセージ送信
+     * 送信するメッセージはTextFieldに入力中の値
+     */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun sendMessageToGattClient() {
         if (gattServer == null) return
@@ -389,6 +440,9 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /**
+     * Bluetooth/GPSの有効化リクエストに対して、ユーザーの操作が完了した後に実行する処理を定義
+     */
     private val startForResult =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_CANCELED) {
@@ -416,6 +470,9 @@ class MainActivity : FragmentActivity() {
             }
         }
 
+    /**
+     * 権限のリクエストに対して、ユーザーの操作が完了した後に実行する処理を定義
+     */
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
@@ -439,12 +496,26 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * toastをメインスレッドから実行
+     * toastはバックグラウンドでは実行できない点に注意
+     *
+     * @param message toastに表示するメッセージ
+     */
     private fun toastOnUiThread(message: String) {
         runOnUiThread {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
     }
 
+    /**
+     * 以下では、bind後のserviceに対する処理を実行
+     * 流れとしては、
+     *
+     * serviceのインスタンスを取得
+     * インスタンスからserviceで定義したメソッドを呼び出し
+     * インスタンスからserviceのinterfaceを実装したobjectを渡す
+     */
     private val advertisingServiceConnection: ServiceConnection = object : ServiceConnection {
         @RequiresPermission(Manifest.permission.BLUETOOTH_ADVERTISE)
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -516,10 +587,6 @@ class MainActivity : FragmentActivity() {
                     viewModel.addScanResultList(result)
                 }
 
-                override fun onBatchScanResultReceived(results: MutableList<ScanResult>?) {
-                    viewModel.addBatchScanResultsList(results)
-                }
-
                 override fun onScanningStatusChanged(state: Boolean) {
                     viewModel.onScanningStatusChanged(state)
                     if (state) {
@@ -540,6 +607,9 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Gattの実装は不要
+     */
     private val gattClientServiceConnection: ServiceConnection = object : ServiceConnection {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onServiceConnected(name: ComponentName, service: IBinder) {

@@ -16,11 +16,13 @@ import java.util.UUID
 
 
 class BleViewModel(application: Application) : AndroidViewModel(application) {
+    // Gatt未接続/Gattサーバー/Gattクライアントのいずれか
     private val _connectionType = MutableLiveData(ConnectionType.NONE)
     val connectionTypeLiveData: LiveData<ConnectionType> = _connectionType
     val connectionType: ConnectionType
         get() = connectionTypeLiveData.value!!
 
+    // それぞれのserviceの接続状況(bind)
     private val _advertisingConnection: MutableLiveData<ServiceConnectionState> =
         MutableLiveData(ServiceConnectionState.WAITING)
     val advertisingConnectionLiveData: LiveData<ServiceConnectionState> = _advertisingConnection
@@ -45,6 +47,7 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
     val gattClientConnection: ServiceConnectionState
         get() = gattClientConnectionLiveData.value!!
 
+    // すべての権限の取得に成功すればtrue
     private val _allPermissionsGranted = MutableLiveData(false)
     val allPermissionsGrantedLiveData: LiveData<Boolean> = _allPermissionsGranted
 
@@ -54,50 +57,64 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
     private val _gpsEnabled = MutableLiveData(false)
     val gpsEnabledLiveData: LiveData<Boolean> = _gpsEnabled
 
+    // Scan結果の一覧
     private val _scanResults = MutableLiveData<List<ScanResult>>(listOf())
     val scanResultsLiveData: LiveData<List<ScanResult>> = _scanResults
 
+    // 接続先Gattサーバーのデバイス情報
     private val _connectingDevice = MutableLiveData<ScanResult>(null)
     val connectingDeviceLiveData: LiveData<ScanResult> = _connectingDevice
     val connectingDevice: ScanResult?
         get() = connectingDeviceLiveData.value
 
+    // 接続されているGattクライアントのデバイス情報
     private val _connectedDevice = MutableLiveData<BluetoothDevice?>(null)
     val connectedDeviceLiveData: LiveData<BluetoothDevice?> = _connectedDevice
     val connectedDevice: BluetoothDevice?
         get() = connectedDeviceLiveData.value
 
+    // 現在のスキャン実行状態、実行中であればtrue
     private val _scanningState = MutableLiveData(false)
     val scanningStateLiveData: LiveData<Boolean> = _scanningState
     val isScanning: Boolean
         get() = scanningStateLiveData.value == true
 
+    // Gattクライアントの接続状態（Service内部処理）
     private val _gattClientState: MutableLiveData<ServiceState> = MutableLiveData()
     val gattClientStateLiveData: LiveData<ServiceState> = _gattClientState
 
+    // Gattの接続相手から受け取ったテキストメッセージ
     private val _receivedMessage: MutableLiveData<String> = MutableLiveData()
     val receivedMessageLiveData: LiveData<String> = _receivedMessage
 
+    // TextFieldに入力したテキストメッセージ
     private val _inputMessage: MutableLiveData<String> = MutableLiveData("")
     val inputMessageLiveData: LiveData<String> = _inputMessage
     val inputMessage: String
         get() = inputMessageLiveData.value ?: ""
 
+    // Gattサーバーに対してWriteリクエストを行った際に、レスポンス待ちの間はtrueとなる
     private val _waitingWriteResponse = MutableLiveData(false)
     val waitingWriteResponseLiveData: LiveData<Boolean> = _waitingWriteResponse
 
+    // Rssi（電波強度)のフィルターオン/オフ
     private var rssiFiltered = true
     val isRssiFiltered: Boolean
         get() = rssiFiltered
 
+    // サービスUUIDのフィルターオン/オフ
     private var uuidFiltered = true
     val isUuidFiltered: Boolean
         get() = uuidFiltered
 
+    // チャットメッセージ一覧
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
 
+    /**
+     * チャットメッセージを追加
+     */
     fun addMessage(content: String, isFromMe: Boolean) {
         val newMessage = ChatMessage(
             id = UUID.randomUUID().toString(),
@@ -108,10 +125,19 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         _messages.value += newMessage
     }
 
+    /**
+     * Gattへの接続形態が変動した際に呼び出される
+     *
+     * @param type 接続タイプ: 未接続/クライアント/サーバー
+     */
     fun onConnectionTypeChanged(type: ConnectionType) {
         _connectionType.value = type
     }
 
+    /**
+     * bluetooth/GPS/全ての権限取得
+     * 上記の条件がそろった場合に呼び出され、LiveDataの値を書き換える
+     */
     fun onAllPermissionsGranted() {
         _allPermissionsGranted.value = true
     }
@@ -138,6 +164,12 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
                 bluetoothEnabledLiveData.value == true &&
                 gpsEnabledLiveData.value == true
 
+    /**
+     * サービスの接続状態が変動した際に呼び出され、LiveDataの値を書き換える
+     *
+     * @param service サービスの名前
+     * @param state 接続状態
+     */
     fun onServiceConnectionStateChanged(service: ServiceName, state: ServiceConnectionState) {
         when (service) {
             ServiceName.Advertising -> _advertisingConnection.value = state
@@ -147,15 +179,31 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Gattクライアント/Gattサーバーからメッセージを受け取った際に呼び出され。
+     * LiveDataを書き換えたのち、メッセージログを追加する
+     *
+     * @param message メッセージ
+     */
     fun onMessageReceived(message: String) {
         _receivedMessage.value = message
         addMessage(message, false)
     }
 
+    /**
+     * TextFieldの値が変更された際に呼び出され、LiveDataの値を書き換える
+     *
+     * @param message メッセージ
+     */
     fun onInputMessageChanged(message: String) {
         _inputMessage.value = message
     }
 
+    /**
+     * スキャン結果を一覧に追加
+     *
+     * @param result 検出されたデバイス情報
+     */
     fun addScanResultList(result: ScanResult) {
         if (_scanResults.value?.none { it.device.address == result.device.address } == true) {
             if (isRssiFiltered && result.rssi < RSSI_STRENGTH_BAR) {
@@ -165,21 +213,16 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addBatchScanResultsList(results: MutableList<ScanResult>?) {
-        for (result in results!!) {
-            if (_scanResults.value?.none { it.device.address == result.device.address } == true) {
-                if (isRssiFiltered && result.rssi < RSSI_STRENGTH_BAR) {
-                    return
-                }
-                _scanResults.value = _scanResults.value?.plus(result)
-            }
-        }
-    }
-
     fun resetScanResultList() {
         _scanResults.value = listOf()
     }
 
+    /**
+     * スキャン結果の一覧表が画面上でタップされた際に呼び出され、
+     * Gattサーバーへの接続を試みる
+     *
+     * @param result 選択されたスキャン結果
+     */
     fun onScanResultSelected(result: ScanResult) {
         if (connectionType == ConnectionType.SERVER) {
             Toast.makeText(
@@ -241,6 +284,13 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 自らのGattサーバーへGattクライアントが接続された際に呼び出され、
+     * 接続のあったデバイスをLiveDataの値に書き込む
+     *
+     * @param connected 接続時 true / 切断時 false
+     * @param device 接続デバイス
+     */
     fun onGattClientConnected(connected: Boolean, device: BluetoothDevice) {
         if (connected) {
             _connectedDevice.value = device
@@ -249,14 +299,28 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * スキャンの実行状態が切り替わった際に呼び出され、
+     * LiveDataの値を書き換える
+     */
     fun onScanningStatusChanged(state: Boolean) {
         _scanningState.value = state
     }
 
+    /**
+     * 自らのGattクライアントの接続状況が変更された際に呼び出され、
+     * LiveDataの値を書き換える
+     */
     fun onGattClientStateChanged(state: ServiceState) {
         _gattClientState.value = state
     }
 
+    /**
+     * Gattサーバーに対するWriteリクエストのレスポンス待機状態に変動があった際に呼び出され、
+     * LiveDataの値を書き換える
+     *
+     * @param waiting true:レスポンス待機中 / false:writeリクエスト実行可能
+     */
     fun onWaitingWriteResponse(waiting: Boolean) {
         _waitingWriteResponse.value = waiting
     }
@@ -270,10 +334,14 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        // Rssiフィルターの電波強度
         private const val RSSI_STRENGTH_BAR = -60
         private const val LOG_TAG = "BleViewModel"
     }
 
+    /**
+     * service内部処理の実行状態を表す値
+     */
     enum class ServiceState {
         WAITING,
         STARTING,
@@ -284,6 +352,9 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         STOPPED,
     }
 
+    /**
+     * serviceのbind状態を表す値
+     */
     enum class ServiceConnectionState {
         NOT_CONNECTED,
         CONNECTING,
@@ -293,6 +364,9 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         WAITING
     }
 
+    /**
+     * サービス名
+     */
     enum class ServiceName {
         Advertising,
         Scanning,
@@ -300,6 +374,10 @@ class BleViewModel(application: Application) : AndroidViewModel(application) {
         GattClient
     }
 
+    /**
+     * Gattサーバー/Gattクライアント/Gatt接続無し
+     * のいずれか
+     */
     enum class ConnectionType {
         SERVER,
         CLIENT,
